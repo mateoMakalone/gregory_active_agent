@@ -47,7 +47,10 @@ local-setup: ## Настроить локальную БД
 	createdb gregory_orchestration || echo "БД уже существует"
 	psql gregory_orchestration < ops/sql/init.sql || echo "Схема уже применена"
 
-local-dashboard: ## Запустить dashboard локально
+local-dashboard: ## Запустить dashboard локально (FastAPI)
+	python3 -m uvicorn app.dashboard_fastapi:app --host 127.0.0.1 --port 8501
+
+local-dashboard-streamlit: ## Запустить dashboard на Streamlit (если работает)
 	python3 -m streamlit run app/dashboard.py --server.port=8501 --server.address=127.0.0.1
 
 local-api: ## Запустить API сервер локально  

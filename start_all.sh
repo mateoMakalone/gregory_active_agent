@@ -153,11 +153,11 @@ start_components() {
         return 1
     fi
     
-    # Запуск Dashboard в фоне
+    # Запуск Dashboard в фоне (FastAPI вместо Streamlit)
     print_status "Запуск Dashboard (порт 8501)..."
-    nohup python3 -m streamlit run app/dashboard.py --server.port=8501 --server.address=127.0.0.1 > logs/dashboard.log 2>&1 &
+    nohup python3 -m uvicorn app.dashboard_fastapi:app --host 127.0.0.1 --port 8501 > logs/dashboard.log 2>&1 &
     DASHBOARD_PID=$!
-    sleep 5
+    sleep 3
     
     # Проверка Dashboard
     if curl -f http://127.0.0.1:8501 > /dev/null 2>&1; then
