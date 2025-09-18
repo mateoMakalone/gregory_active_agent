@@ -34,6 +34,31 @@ stop: ## 🛑 Остановить всю систему
 status: ## 📊 Показать статус всех компонентов
 	./status.sh
 
+# n8n controls
+n8n-start: ## Запустить только n8n (Docker требуется)
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "Docker не установлен. Установите Docker Desktop и повторите."; \
+		exit 1; \
+	fi
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "Docker не запущен. Откройте Docker Desktop и повторите."; \
+		exit 1; \
+	fi
+	docker compose up -d n8n redis postgres
+	@echo "Откройте n8n UI: http://localhost:5678"
+
+n8n-stop: ## Остановить n8n и его зависимости
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "Docker не установлен."; exit 0; \
+	fi
+	docker compose stop n8n
+
+n8n-down: ## Полностью остановить и удалить n8n+deps контейнеры
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "Docker не установлен."; exit 0; \
+	fi
+	docker compose down
+
 # Local commands (без Docker)
 local-services: ## Запустить локальные сервисы (PostgreSQL, Redis)
 	brew services start postgresql@14
@@ -58,13 +83,21 @@ local-api: ## Запустить API сервер локально
 
 # Orchestration commands (Docker)
 docker-up: ## Запустить инфраструктуру с n8n
-	docker-compose up -d
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "Docker не установлен. Установите Docker Desktop и повторите."; \
+		exit 1; \
+	fi
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "Docker не запущен. Откройте Docker Desktop и повторите."; \
+		exit 1; \
+	fi
+	docker compose up -d
 
 docker-down: ## Остановить инфраструктуру
-	docker-compose down
+	@if command -v docker >/dev/null 2>&1; then docker compose down; else echo "Docker не установлен"; fi
 
 docker-logs: ## Показать логи сервисов
-	docker-compose logs -f
+	@if command -v docker >/dev/null 2>&1; then docker compose logs -f; else echo "Docker не установлен"; fi
 
 api-test: ## Проверить API здоровье
 	curl -f http://localhost:8000/health || echo "API недоступен"

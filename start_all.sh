@@ -200,6 +200,7 @@ show_status() {
     echo ""
     echo "🛑 Остановка:    ./stop_all.sh"
     echo "📊 Статус:       ./status.sh"
+    echo "🧩 n8n UI:       http://localhost:5678 (если запущен)"
     echo ""
 }
 
