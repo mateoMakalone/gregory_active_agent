@@ -24,7 +24,7 @@ database:
 # Orchestration Database (PostgreSQL)
 orchestration:
   database:
-    url: "postgresql://gregory:gregory_secret@localhost:5432/gregory_orchestration"
+    url: "postgresql://katya@localhost:5432/gregory_orchestration"
     echo: false
   
   # n8n Integration

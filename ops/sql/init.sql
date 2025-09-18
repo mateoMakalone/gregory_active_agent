@@ -131,3 +131,4 @@ VALUES (
 -- GRANT USAGE ON SCHEMA public TO gregory_readonly;
 -- GRANT SELECT ON ALL TABLES IN SCHEMA public TO gregory_readonly;
 -- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO gregory_readonly;
+

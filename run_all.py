@@ -9,7 +9,6 @@ import time
 import signal
 from pathlib import Path
 from threading import Thread
-import psutil
 
 class TradingAgentManager:
     """Менеджер для запуска всех компонентов системы"""

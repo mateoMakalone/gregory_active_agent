@@ -188,3 +188,4 @@ SELECT * FROM runs ORDER BY started_at DESC LIMIT 10;
 - Prometheus + Grafana для метрик
 - ELK Stack для логов
 - Alertmanager для критических алертов
+

@@ -24,7 +24,36 @@ run-all: ## Запустить все компоненты (legacy)
 run-example: ## Запустить пример
 	python3 run_example.py
 
-# Orchestration commands
+# Quick start commands
+start: ## 🚀 Запустить всю систему одной командой
+	./start_all.sh
+
+stop: ## 🛑 Остановить всю систему
+	./stop_all.sh
+
+status: ## 📊 Показать статус всех компонентов
+	./status.sh
+
+# Local commands (без Docker)
+local-services: ## Запустить локальные сервисы (PostgreSQL, Redis)
+	brew services start postgresql@14
+	brew services start redis
+
+local-stop: ## Остановить локальные сервисы
+	brew services stop postgresql@14  
+	brew services stop redis
+
+local-setup: ## Настроить локальную БД
+	createdb gregory_orchestration || echo "БД уже существует"
+	psql gregory_orchestration < ops/sql/init.sql || echo "Схема уже применена"
+
+local-dashboard: ## Запустить dashboard локально
+	python3 -m streamlit run app/dashboard.py --server.port=8501 --server.address=127.0.0.1
+
+local-api: ## Запустить API сервер локально  
+	python3 -m uvicorn app.api:app --host 127.0.0.1 --port 8000 --reload
+
+# Orchestration commands (Docker)
 docker-up: ## Запустить инфраструктуру с n8n
 	docker-compose up -d
 
