@@ -1,0 +1,376 @@
+{
+  "name": "Run Strategy",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "run-strategy",
+        "options": {}
+      },
+      "name": "Strategy Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "strategy-runner"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Валидация входных данных\nconst body = $input.first().json.body;\n\nif (!body.strategy_id) {\n  throw new Error('strategy_id is required');\n}\n\nif (!body.mode) {\n  body.mode = 'paper';\n}\n\n// Генерация run_id если не предоставлен\nif (!body.run_id) {\n  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);\n  body.run_id = `run_${body.strategy_id}_${timestamp}`;\n}\n\nreturn [body];"
+      },
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/prepare",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"run_id\": \"{{ $json.run_id }}_prepare\",\n  \"strategy_id\": \"{{ $json.strategy_id }}\",\n  \"mode\": \"{{ $json.mode }}\",\n  \"params\": {{ $json.params || '{}' }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Prepare Environment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/execute",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"run_id\": \"{{ $('Validate Request').last().json.run_id }}\",\n  \"strategy_id\": \"{{ $('Validate Request').last().json.strategy_id }}\",\n  \"mode\": \"{{ $('Validate Request').last().json.mode }}\",\n  \"params\": {{ $('Validate Request').last().json.params || '{}' }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Execute Strategy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://gregory-api:8000/status/{{ $json.run_id }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Check Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-check-1",
+              "leftValue": "{{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Execution Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-check-2",
+              "leftValue": "{{ $json.status }}",
+              "rightValue": "failed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/notify",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"channel\": \"signals\",\n  \"level\": \"success\",\n  \"text\": \"✅ STRATEGY EXECUTED\\n\\n🎯 Strategy: {{ $('Validate Request').last().json.strategy_id }}\\n🏃 Run ID: {{ $('Validate Request').last().json.run_id }}\\n📈 Mode: {{ $('Validate Request').last().json.mode }}\\n\\n💰 PnL: {{ $json.metrics_partial.pnl || 'N/A' }}\\n📊 Trades: {{ $json.metrics_partial.trades_count || 'N/A' }}\\n\\n🔗 Details: {{ $json.artifacts_uri }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Success Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/notify",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"channel\": \"alerts\",\n  \"level\": \"error\",\n  \"text\": \"❌ STRATEGY EXECUTION FAILED\\n\\n🎯 Strategy: {{ $('Validate Request').last().json.strategy_id }}\\n🏃 Run ID: {{ $('Validate Request').last().json.run_id }}\\n\\n⚠️ Error: {{ $json.error_message || 'Unknown error' }}\\n\\n🔗 Logs: {{ $json.artifacts_uri }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"completed\",\n  \"run_id\": \"{{ $('Validate Request').last().json.run_id }}\",\n  \"strategy_id\": \"{{ $('Validate Request').last().json.strategy_id }}\",\n  \"result\": {{ $json }}\n}",
+        "options": {}
+      },
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1780,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 500,
+        "responseBody": "{\n  \"status\": \"failed\",\n  \"run_id\": \"{{ $('Validate Request').last().json.run_id }}\",\n  \"strategy_id\": \"{{ $('Validate Request').last().json.strategy_id }}\",\n  \"error\": \"{{ $json.error_message || 'Strategy execution failed' }}\"\n}",
+        "options": {}
+      },
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1780,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Strategy Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Prepare Environment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Environment": {
+      "main": [
+        [
+          {
+            "node": "Execute Strategy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Strategy": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Execution Complete?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 30s": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execution Complete?": {
+      "main": [
+        [
+          {
+            "node": "Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 30s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failed?": {
+      "main": [
+        [
+          {
+            "node": "Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Notification": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Notification": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-09-18T12:00:00.000Z",
+      "updatedAt": "2025-09-18T12:00:00.000Z",
+      "id": "1",
+      "name": "trading"
+    },
+    {
+      "createdAt": "2025-09-18T12:00:00.000Z",
+      "updatedAt": "2025-09-18T12:00:00.000Z",
+      "id": "4",
+      "name": "execution"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-09-18T12:00:00.000Z",
+  "versionId": "1"
+}

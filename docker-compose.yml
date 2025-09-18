@@ -1,43 +1,120 @@
 version: '3.8'
 
 services:
-  trading-agent:
-    build: .
-    container_name: trading-ai-agent
+  # PostgreSQL для оркестрации
+  postgres:
+    image: postgres:15
+    container_name: gregory-postgres
+    environment:
+      POSTGRES_DB: gregory_orchestration
+      POSTGRES_USER: gregory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gregory_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./ops/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "8501:8501"
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gregory"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # n8n оркестратор
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: gregory-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-n8n_secret}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=gregory_orchestration
+      - DB_POSTGRESDB_USER=gregory
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-gregory_secret}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-n8n_encryption_key_change_me}
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - N8N_METRICS=true
+      - N8N_LOG_LEVEL=info
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./ops/n8n:/home/node/.n8n/workflows
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Redis для n8n queue
+  redis:
+    image: redis:7-alpine
+    container_name: gregory-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Gregory API сервер (основной)
+  gregory-api:
+    build: .
+    container_name: gregory-api
+    ports:
+      - "8000:8000"  # FastAPI сервер для n8n интеграции
+      - "8501:8501"  # Streamlit dashboard
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./models:/app/models
       - ./config:/app/config
+      - ./artifacts:/app/artifacts
     environment:
       - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://gregory:${POSTGRES_PASSWORD:-gregory_secret}@postgres:5432/gregory_orchestration
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET:-webhook_secret}
+      - ARTIFACTS_ROOT=/app/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
-    command: python -m streamlit run app/dashboard.py --server.port=8501 --server.address=0.0.0.0
+    command: >
+      sh -c "
+        python -m uvicorn app.api:app --host 0.0.0.0 --port 8000 &
+        streamlit run app/dashboard.py --server.port=8501 --server.address=0.0.0.0
+      "
 
-  trading-bot:
+  # Gregory Telegram Bot
+  gregory-bot:
     build: .
-    container_name: trading-telegram-bot
+    container_name: gregory-bot
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./config:/app/config
     environment:
       - PYTHONPATH=/app
+      - DATABASE_URL=postgresql://gregory:${POSTGRES_PASSWORD:-gregory_secret}@postgres:5432/gregory_orchestration
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     command: python run_bot.py
 
-  trading-core:
-    build: .
-    container_name: trading-core-agent
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./models:/app/models
-      - ./config:/app/config
-    environment:
-      - PYTHONPATH=/app
-    restart: unless-stopped
-    command: python -m src.main
+volumes:
+  postgres_data:
+  n8n_data:
+  redis_data:
 

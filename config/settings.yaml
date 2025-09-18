@@ -18,8 +18,61 @@ api:
 
 # Database
 database:
-  url: "sqlite:///data/trading_agent.db"
+  url: "sqlite:///data/trading_agent.db"  # Для обратной совместимости
   echo: false
+
+# Orchestration Database (PostgreSQL)
+orchestration:
+  database:
+    url: "postgresql://gregory:gregory_secret@localhost:5432/gregory_orchestration"
+    echo: false
+  
+  # n8n Integration
+  n8n:
+    webhook_secret: "webhook_secret_change_me"
+    allowed_ips: ["127.0.0.1", "172.16.0.0/12"]  # Docker networks
+    base_url: "http://localhost:5678"
+  
+  # Artifacts Storage
+  artifacts:
+    root_path: "./artifacts"
+    s3:
+      endpoint: ""  # Для будущего использования
+      bucket: ""
+      access_key: ""
+      secret_key: ""
+  
+  # Quality Thresholds для Metrics Guard
+  quality_thresholds:
+    default:
+      min_sharpe: 1.0
+      max_drawdown: 0.20
+      max_staleness_hours: 4
+      min_trade_count: 10
+    
+    strategies:
+      eurusd_mtf:
+        min_sharpe: 1.2
+        max_drawdown: 0.15
+        max_staleness_hours: 2
+      
+      btcusd_momentum:
+        min_sharpe: 1.0
+        max_drawdown: 0.25
+        max_staleness_hours: 1
+  
+  # Concurrency Settings
+  concurrency:
+    nightly_retrain: 1      # Только одно обучение одновременно
+    run_strategy: 10        # До 10 стратегий параллельно
+    upload_deploy: 3        # До 3 загрузок одновременно
+    metrics_guard: 1        # Один guard
+  
+  # Retry Policy
+  retry:
+    max_attempts: 3
+    backoff_factor: 2       # 2, 4, 8 секунд
+    max_delay: 300          # 5 минут максимум
 
 # Trading Configuration
 trading:

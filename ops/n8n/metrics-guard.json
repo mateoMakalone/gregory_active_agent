@@ -1,0 +1,117 @@
+{
+  "name": "Metrics Guard",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://gregory-api:8000/metrics",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Get Live Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Проверка метрик на соответствие порогам\nconst metrics = $input.first().json;\nconst strategies = metrics.strategies;\nconst alerts = [];\n\n// Пороги по умолчанию\nconst defaultThresholds = {\n  min_sharpe: 1.0,\n  max_drawdown: 0.20,\n  max_staleness_hours: 4,\n  max_latency_ms: 5000\n};\n\n// Специфичные пороги для стратегий\nconst strategyThresholds = {\n  'eurusd_mtf': {\n    min_sharpe: 1.2,\n    max_drawdown: 0.15,\n    max_staleness_hours: 2,\n    max_latency_ms: 3000\n  },\n  'btcusd_momentum': {\n    min_sharpe: 1.0,\n    max_drawdown: 0.25,\n    max_staleness_hours: 1,\n    max_latency_ms: 2000\n  }\n};\n\n// Проверка каждой стратегии\nfor (const [strategyId, strategyMetrics] of Object.entries(strategies)) {\n  const thresholds = strategyThresholds[strategyId] || defaultThresholds;\n  \n  // Проверка Sharpe Ratio\n  if (strategyMetrics.sharpe_ratio < thresholds.min_sharpe) {\n    alerts.push({\n      strategy_id: strategyId,\n      metric: 'sharpe_ratio',\n      current_value: strategyMetrics.sharpe_ratio,\n      threshold: thresholds.min_sharpe,\n      severity: 'warning',\n      message: `Low Sharpe ratio: ${strategyMetrics.sharpe_ratio} < ${thresholds.min_sharpe}`\n    });\n  }\n  \n  // Проверка Max Drawdown\n  if (strategyMetrics.max_drawdown > thresholds.max_drawdown) {\n    alerts.push({\n      strategy_id: strategyId,\n      metric: 'max_drawdown',\n      current_value: strategyMetrics.max_drawdown,\n      threshold: thresholds.max_drawdown,\n      severity: 'critical',\n      message: `High drawdown: ${(strategyMetrics.max_drawdown * 100).toFixed(2)}% > ${(thresholds.max_drawdown * 100).toFixed(2)}%`\n    });\n  }\n  \n  // Проверка задержки данных\n  if (strategyMetrics.data_staleness_minutes > (thresholds.max_staleness_hours * 60)) {\n    alerts.push({\n      strategy_id: strategyId,\n      metric: 'data_staleness',\n      current_value: strategyMetrics.data_staleness_minutes,\n      threshold: thresholds.max_staleness_hours * 60,\n      severity: 'warning',\n      message: `Stale data: ${strategyMetrics.data_staleness_minutes}min > ${thresholds.max_staleness_hours}h`\n    });\n  }\n  \n  // Проверка латентности\n  if (strategyMetrics.latency_ms > thresholds.max_latency_ms) {\n    alerts.push({\n      strategy_id: strategyId,\n      metric: 'latency',\n      current_value: strategyMetrics.latency_ms,\n      threshold: thresholds.max_latency_ms,\n      severity: 'warning',\n      message: `High latency: ${strategyMetrics.latency_ms}ms > ${thresholds.max_latency_ms}ms`\n    });\n  }\n}\n\n// Проверка системных метрик\nconst system = metrics.system;\nif (system.failed_runs_today > 3) {\n  alerts.push({\n    strategy_id: 'system',\n    metric: 'failed_runs',\n    current_value: system.failed_runs_today,\n    threshold: 3,\n    severity: 'critical',\n    message: `Too many failed runs today: ${system.failed_runs_today}`\n  });\n}\n\nif (system.disk_usage_pct > 90) {\n  alerts.push({\n    strategy_id: 'system',\n    metric: 'disk_usage',\n    current_value: system.disk_usage_pct,\n    threshold: 90,\n    severity: 'warning',\n    message: `High disk usage: ${system.disk_usage_pct}%`\n  });\n}\n\nif (system.memory_usage_pct > 85) {\n  alerts.push({\n    strategy_id: 'system',\n    metric: 'memory_usage',\n    current_value: system.memory_usage_pct,\n    threshold: 85,\n    severity: 'warning',\n    message: `High memory usage: ${system.memory_usage_pct}%`\n  });\n}\n\nreturn [{ alerts, timestamp: metrics.timestamp }];"
+      },
+      "name": "Check Thresholds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+              "leftValue": "{{ $json.alerts.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has Alerts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Группировка алертов по severity\nconst alerts = $input.first().json.alerts;\nconst critical = alerts.filter(a => a.severity === 'critical');\nconst warnings = alerts.filter(a => a.severity === 'warning');\n\nlet message = '';\nlet level = 'info';\n\nif (critical.length > 0) {\n  level = 'error';\n  message += `🚨 CRITICAL ALERTS (${critical.length}):\\n\\n`;\n  critical.forEach(alert => {\n    message += `❌ ${alert.strategy_id}: ${alert.message}\\n`;\n  });\n  message += '\\n';\n}\n\nif (warnings.length > 0) {\n  if (level !== 'error') level = 'warning';\n  message += `⚠️ WARNINGS (${warnings.length}):\\n\\n`;\n  warnings.forEach(alert => {\n    message += `⚠️ ${alert.strategy_id}: ${alert.message}\\n`;\n  });\n}\n\nmessage += `\\n⏰ ${new Date().toISOString()}`;\n\nreturn [{ message, level, critical_count: critical.length, warning_count: warnings.length }];"
+      },
+      "name": "Format Alert Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/notify",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"channel\": \"alerts\",\n  \"level\": \"{{ $json.level }}\",\n  \"text\": \"{{ $json.message }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,\n            \"leftValue\": \"\",\n            \"typeValidation\": \"strict\"\n          },\n          \"conditions\": [\n            {\n              \"id\": \"b2c3d4e5-f6g7-8901-bcde-f23456789012\",\n              \"leftValue\": \"{{ $('Format Alert Message').last().json.critical_count }}\",\n              \"rightValue\": 0,\n              \"operator\": {\n                \"type\": \"number\",\n                \"operation\": \"gt\"\n              }\n            }\n          ],\n          \"combinator\": \"and\"\n        },\n        \"options\": {}\n      },\n      \"name\": \"Critical Alerts?\",\n      \"type\": \"n8n-nodes-base.if\",\n      \"typeVersion\": 2,\n      \"position\": [\n        1560,\n        200\n      ]\n    },\n    {\n      \"parameters\": {\n        \"method\": \"POST\",\n        \"url\": \"http://gregory-api:8000/emergency-stop\",\n        \"sendBody\": true,\n        \"bodyContentType\": \"json\",\n        \"jsonBody\": \"{\\n  \\\"reason\\\": \\\"Critical metrics threshold breach\\\",\\n  \\\"triggered_by\\\": \\\"metrics_guard\\\",\\n  \\\"timestamp\\\": \\\"{{ $now.toISOString() }}\\\"\\n}\",\n        \"options\": {\n          \"timeout\": 10000\n        }\n      },\n      \"name\": \"Emergency Stop\",\n      \"type\": \"n8n-nodes-base.httpRequest\",\n      \"typeVersion\": 4.1,\n      \"position\": [\n        1780,\n        100\n      ]\n    },\n    {\n      \"parameters\": {\n        \"method\": \"POST\",\n        \"url\": \"http://gregory-api:8000/notify\",\n        \"sendBody\": true,\n        \"bodyContentType\": \"json\",\n        \"jsonBody\": \"{\\n  \\\"channel\\\": \\\"emergency\\\",\\n  \\\"level\\\": \\\"error\\\",\\n  \\\"text\\\": \\\"🛑 EMERGENCY STOP ACTIVATED\\\\n\\\\n🚨 All trading halted due to critical metrics\\\\n\\\\n⏰ {{ $now.format('YYYY-MM-DD HH:mm:ss') }}\\\\n\\\\n👥 @channel\\\"\\n}\",\n        \"options\": {\n          \"timeout\": 10000\n        }\n      },\n      \"name\": \"Emergency Notification\",\n      \"type\": \"n8n-nodes-base.httpRequest\",\n      \"typeVersion\": 4.1,\n      \"position\": [\n        2000,\n        100\n      ]\n    }\n  ],\n  \"connections\": {\n    \"Every 5 minutes\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Get Live Metrics\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Get Live Metrics\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Check Thresholds\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Check Thresholds\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Has Alerts?\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Has Alerts?\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Format Alert Message\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Format Alert Message\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Send Alert\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Send Alert\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Critical Alerts?\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Critical Alerts?\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Emergency Stop\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    },\n    \"Emergency Stop\": {\n      \"main\": [\n        [\n          {\n            \"node\": \"Emergency Notification\",\n            \"type\": \"main\",\n            \"index\": 0\n          }\n        ]\n      ]\n    }\n  },\n  \"pinData\": {},\n  \"settings\": {\n    \"executionOrder\": \"v1\",\n    \"saveManualExecutions\": true,\n    \"callerPolicy\": \"workflowsFromSameOwner\"\n  },\n  \"staticData\": null,\n  \"tags\": [\n    {\n      \"createdAt\": \"2025-09-18T12:00:00.000Z\",\n      \"updatedAt\": \"2025-09-18T12:00:00.000Z\",\n      \"id\": \"1\",\n      \"name\": \"trading\"\n    },\n    {\n      \"createdAt\": \"2025-09-18T12:00:00.000Z\",\n      \"updatedAt\": \"2025-09-18T12:00:00.000Z\",\n      \"id\": \"3\",\n      \"name\": \"monitoring\"\n    }\n  ],\n  \"triggerCount\": 1,\n  \"updatedAt\": \"2025-09-18T12:00:00.000Z\",\n  \"versionId\": \"1\"\n}"

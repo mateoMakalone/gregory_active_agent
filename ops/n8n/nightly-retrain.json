@@ -1,0 +1,524 @@
+{
+  "name": "Nightly Retrain",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Every day at 2 AM",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/ingest",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"run_id\": \"{{ $now.format('YYYY-MM-DD') }}_nightly_ingest_{{ $workflow.id }}\",\n  \"strategy_id\": \"eurusd_mtf\",\n  \"data_window_start\": \"{{ $now.minus({ months: 6 }).format('YYYY-MM-DD') }}\",\n  \"data_window_end\": \"{{ $now.format('YYYY-MM-DD') }}\",\n  \"featureset\": \"mtf_v2\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Ingest Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://gregory-api:8000/status/{{ $json.run_id }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Check Ingest Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        680,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "f7a1a0b1-1d59-4c7a-8b1a-c2b3e7f9e2a8",
+              "leftValue": "{{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Ingest Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/train",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"run_id\": \"{{ $now.format('YYYY-MM-DD') }}_nightly_train_{{ $workflow.id }}\",\n  \"strategy_id\": \"eurusd_mtf\",\n  \"featureset\": \"mtf_v2\",\n  \"hyperparams\": {\n    \"n_estimators\": 1200,\n    \"max_depth\": 6,\n    \"learning_rate\": 0.05\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Train Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://gregory-api:8000/status/{{ $json.run_id }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Check Train Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "name": "Wait 5m",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c8b2a1c3-2e6a-4d8b-9c2d-f4e6b8a1c5d7",
+              "leftValue": "{{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Train Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/backtest",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"run_id\": \"{{ $now.format('YYYY-MM-DD') }}_nightly_backtest_{{ $workflow.id }}\",\n  \"strategy_id\": \"eurusd_mtf\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Run Backtest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1780,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://gregory-api:8000/status/{{ $json.run_id }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Check Backtest Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2000,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "e9d3b2f4-3f7b-4e9c-ad3e-g5f7c9b2e6f8",
+              "leftValue": "{{ $json.metrics_partial.sharpe_ratio }}",
+              "rightValue": 1.2,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "a1c5e7f9-4g8d-5h1e-be4f-h6g8d1c7f9b3",
+              "leftValue": "{{ $json.metrics_partial.max_drawdown }}",
+              "rightValue": 0.15,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Quality Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/promote",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"run_id\": \"{{ $now.format('YYYY-MM-DD') }}_nightly_promote_{{ $workflow.id }}\",\n  \"strategy_id\": \"eurusd_mtf\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Promote Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/notify",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"channel\": \"signals\",\n  \"level\": \"success\",\n  \"text\": \"✅ PROMOTED eurusd_mtf {{ $now.format('YYYY-MM-DD') }}\\n\\n📊 Sharpe: {{ $('Check Backtest Status').last().json.metrics_partial.sharpe_ratio }}\\n📉 MaxDD: {{ $('Check Backtest Status').last().json.metrics_partial.max_drawdown * 100 }}%\\n\\n🔗 Artifacts: {{ $('Check Backtest Status').last().json.artifacts_uri }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Success Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/notify",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"channel\": \"alerts\",\n  \"level\": \"warning\",\n  \"text\": \"⚠️ RETRAIN REJECTED eurusd_mtf {{ $now.format('YYYY-MM-DD') }}\\n\\n📊 Sharpe: {{ $('Check Backtest Status').last().json.metrics_partial.sharpe_ratio || 'N/A' }}\\n📉 MaxDD: {{ ($('Check Backtest Status').last().json.metrics_partial.max_drawdown || 0) * 100 }}%\\n\\n❌ Quality thresholds not met\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Quality Fail Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2440,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gregory-api:8000/notify",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"channel\": \"alerts\",\n  \"level\": \"error\",\n  \"text\": \"❌ NIGHTLY RETRAIN FAILED\\n\\n🔧 Stage: {{ $json.stage || 'Unknown' }}\\n⚠️ Error: {{ $json.error_message || 'Check logs' }}\\n\\n🔗 Run ID: {{ $json.run_id }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Every day at 2 AM": {
+      "main": [
+        [
+          {
+            "node": "Ingest Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Data": {
+      "main": [
+        [
+          {
+            "node": "Check Ingest Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Ingest Status": {
+      "main": [
+        [
+          {
+            "node": "Ingest Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 30s": {
+      "main": [
+        [
+          {
+            "node": "Check Ingest Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Complete?": {
+      "main": [
+        [
+          {
+            "node": "Train Model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 30s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Train Model": {
+      "main": [
+        [
+          {
+            "node": "Check Train Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Train Status": {
+      "main": [
+        [
+          {
+            "node": "Train Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 5m": {
+      "main": [
+        [
+          {
+            "node": "Check Train Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Train Complete?": {
+      "main": [
+        [
+          {
+            "node": "Run Backtest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 5m",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Backtest": {
+      "main": [
+        [
+          {
+            "node": "Check Backtest Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Backtest Status": {
+      "main": [
+        [
+          {
+            "node": "Quality Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Check": {
+      "main": [
+        [
+          {
+            "node": "Promote Model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quality Fail Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Promote Model": {
+      "main": [
+        [
+          {
+            "node": "Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "Error Handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-09-18T12:00:00.000Z",
+      "updatedAt": "2025-09-18T12:00:00.000Z",
+      "id": "1",
+      "name": "trading"
+    },
+    {
+      "createdAt": "2025-09-18T12:00:00.000Z", 
+      "updatedAt": "2025-09-18T12:00:00.000Z",
+      "id": "2",
+      "name": "retrain"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-09-18T12:00:00.000Z",
+  "versionId": "1"
+}
