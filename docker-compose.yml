@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  trading-agent:
+    build: .
+    container_name: trading-ai-agent
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    command: python -m streamlit run app/dashboard.py --server.port=8501 --server.address=0.0.0.0
+
+  trading-bot:
+    build: .
+    container_name: trading-telegram-bot
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    command: python run_bot.py
+
+  trading-core:
+    build: .
+    container_name: trading-core-agent
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    command: python -m src.main
+

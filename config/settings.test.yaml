@@ -1,0 +1,100 @@
+# Тестовая конфигурация для демонстрации
+# Этот файл содержит фиктивные API ключи для тестирования
+
+# API Keys (тестовые значения)
+api:
+  fundingpips:
+    api_key: "test_fundingpips_key"
+    secret_key: "test_fundingpips_secret"
+    base_url: "https://api.fundingpips.com"
+  
+  hashhedge:
+    api_key: "test_hashhedge_key"
+    secret_key: "test_hashhedge_secret"
+    base_url: "https://api.hashhedge.com"
+  
+  telegram:
+    bot_token: "1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    chat_id: "-1001234567890"
+
+# Database
+database:
+  url: "sqlite:///data/trading_agent_test.db"
+  echo: false
+
+# Trading Configuration
+trading:
+  timeframes:
+    - "4h"
+    - "1h"
+    - "5m"
+  
+  assets:
+    forex:
+      - "EURUSD"
+      - "GBPUSD"
+      - "USDJPY"
+    crypto:
+      - "BTCUSDT"
+      - "ETHUSDT"
+      - "ADAUSDT"
+  
+  risk:
+    max_position_size: 0.02
+    stop_loss_pct: 0.01
+    take_profit_pct: 0.02
+
+# ML Configuration
+ml:
+  training:
+    test_size: 0.2
+    validation_size: 0.1
+    random_state: 42
+  
+  models:
+    - name: "xgboost"
+      params:
+        n_estimators: 100
+        max_depth: 6
+        learning_rate: 0.1
+
+# Technical Indicators
+indicators:
+  sma:
+    periods: [20, 50, 200]
+  ema:
+    periods: [12, 26]
+  rsi:
+    period: 14
+    overbought: 70
+    oversold: 30
+  bollinger:
+    period: 20
+    std_dev: 2
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+
+# Dashboard
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  debug: true
+  auto_reload: true
+
+# Logging
+logging:
+  level: "DEBUG"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} - {message}"
+  file: "logs/trading_agent_test.log"
+  max_size: "10 MB"
+  retention: "7 days"
+
+# Backtesting
+backtesting:
+  start_date: "2023-01-01"
+  end_date: "2023-12-31"
+  initial_capital: 10000
+  commission: 0.001
+

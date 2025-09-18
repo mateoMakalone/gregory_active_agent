@@ -1,0 +1,110 @@
+# Trading AI Agent Configuration
+
+# API Keys (добавьте свои ключи)
+api:
+  fundingpips:
+    api_key: "YOUR_FUNDINGPIPS_API_KEY"
+    secret_key: "YOUR_FUNDINGPIPS_SECRET"
+    base_url: "https://api.fundingpips.com"
+  
+  hashhedge:
+    api_key: "YOUR_HASHHEDGE_API_KEY"
+    secret_key: "YOUR_HASHHEDGE_SECRET"
+    base_url: "https://api.hashhedge.com"
+  
+  telegram:
+    bot_token: "YOUR_TELEGRAM_BOT_TOKEN"
+    chat_id: "YOUR_TELEGRAM_CHAT_ID"
+
+# Database
+database:
+  url: "sqlite:///data/trading_agent.db"
+  echo: false
+
+# Trading Configuration
+trading:
+  # Таймфреймы для анализа (в порядке приоритета)
+  timeframes:
+    - "4h"  # Тренд
+    - "1h"  # Подтверждение
+    - "5m"  # Вход
+  
+  # Активы для торговли
+  assets:
+    forex:
+      - "EURUSD"
+      - "GBPUSD"
+      - "USDJPY"
+    crypto:
+      - "BTCUSDT"
+      - "ETHUSDT"
+      - "ADAUSDT"
+  
+  # Настройки риска
+  risk:
+    max_position_size: 0.02  # 2% от депозита
+    stop_loss_pct: 0.01      # 1% стоп-лосс
+    take_profit_pct: 0.02    # 2% тейк-профит
+
+# ML Configuration
+ml:
+  # Параметры обучения
+  training:
+    test_size: 0.2
+    validation_size: 0.1
+    random_state: 42
+  
+  # Модели
+  models:
+    - name: "xgboost"
+      params:
+        n_estimators: 100
+        max_depth: 6
+        learning_rate: 0.1
+    
+    - name: "lightgbm"
+      params:
+        n_estimators: 100
+        max_depth: 6
+        learning_rate: 0.1
+
+# Technical Indicators
+indicators:
+  sma:
+    periods: [20, 50, 200]
+  ema:
+    periods: [12, 26]
+  rsi:
+    period: 14
+    overbought: 70
+    oversold: 30
+  bollinger:
+    period: 20
+    std_dev: 2
+  macd:
+    fast: 12
+    slow: 26
+    signal: 9
+
+# Dashboard
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  debug: false
+  auto_reload: true
+
+# Logging
+logging:
+  level: "INFO"
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} - {message}"
+  file: "logs/trading_agent.log"
+  max_size: "10 MB"
+  retention: "30 days"
+
+# Backtesting
+backtesting:
+  start_date: "2023-01-01"
+  end_date: "2023-12-31"
+  initial_capital: 10000
+  commission: 0.001  # 0.1%
+
