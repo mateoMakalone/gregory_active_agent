@@ -68,7 +68,9 @@ services:
 
   # Gregory API сервер (основной)
   gregory-api:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: gregory-api
     ports:
       - "8000:8000"  # FastAPI сервер для n8n интеграции
@@ -96,7 +98,9 @@ services:
 
   # Gregory Telegram Bot
   gregory-bot:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: gregory-bot
     volumes:
       - ./data:/app/data

@@ -77,7 +77,12 @@ trading-ai-agent/
 ├── models/                       # ML модели
 ├── tests/                        # Тесты
 ├── docker-compose.yml           # Docker Compose
-├── Dockerfile                   # Docker образ
+├── docker/                      # Docker файлы
+│   ├── Dockerfile              # Основной Docker образ
+│   ├── Dockerfile.api          # API сервер
+│   ├── Dockerfile.bot          # Telegram бот
+│   ├── Dockerfile.dashboard    # Dashboard
+│   └── Dockerfile.strategy     # Strategy runner
 ├── Makefile                     # Команды разработки
 ├── requirements.txt             # Зависимости
 ├── README.md                    # Основная документация

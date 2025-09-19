@@ -49,7 +49,7 @@ pre-commit: ## Установить pre-commit хуки
 	pre-commit run --all-files
 
 docker-build: ## Собрать Docker образы
-	docker build -f Dockerfile.api -t trading-agent-api:latest .
+	docker build -f docker/Dockerfile.api -t trading-agent-api:latest .
 
 docker-compose-up: ## Запустить все сервисы через Docker Compose
 	docker-compose -f docker-compose.v2.yml up -d

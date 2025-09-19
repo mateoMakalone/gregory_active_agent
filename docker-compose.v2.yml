@@ -43,7 +43,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: docker/Dockerfile.api
     container_name: trading_agent_api
     environment:
       - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
@@ -74,7 +74,7 @@ services:
   strategy_runner:
     build:
       context: .
-      dockerfile: Dockerfile.strategy
+      dockerfile: docker/Dockerfile.strategy
     container_name: trading_agent_strategy
     environment:
       - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
@@ -100,7 +100,7 @@ services:
   telegram_bot:
     build:
       context: .
-      dockerfile: Dockerfile.bot
+      dockerfile: docker/Dockerfile.bot
     container_name: trading_agent_telegram
     environment:
       - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
@@ -126,7 +126,7 @@ services:
   dashboard:
     build:
       context: .
-      dockerfile: Dockerfile.dashboard
+      dockerfile: docker/Dockerfile.dashboard
     container_name: trading_agent_dashboard
     environment:
       - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
