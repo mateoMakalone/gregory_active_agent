@@ -9,14 +9,20 @@ help: ## Показать справку
 install: ## Установить зависимости
 	python3 -m pip install -r requirements.txt
 
-run: ## Запустить систему
+run: ## Запустить систему (синхронная версия)
 	python3 -m src.main
+
+run-async: ## Запустить систему (асинхронная версия)
+	python3 run_async.py
 
 run-dashboard: ## Запустить только дашборд
 	streamlit run app/dashboard.py
 
 run-bot: ## Запустить только Telegram-бота
 	python3 run_bot.py
+
+run-bot-async: ## Запустить асинхронный Telegram-бот
+	python3 -c "import asyncio; from telegram_bot.async_bot import async_telegram_bot; asyncio.run(async_telegram_bot.test_connection())"
 
 run-all: ## Запустить все компоненты (legacy)
 	python3 run_all.py
