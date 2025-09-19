@@ -1,0 +1,206 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trading-ai-agent"
+version = "2.0.0"
+description = "Торговый AI-агент с полной системой безопасности и оркестрации"
+authors = [
+    {name = "Trading AI Team", email = "team@trading-ai.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.24.3",
+    "pandas>=2.0.3",
+    "scikit-learn>=1.3.0",
+    "scipy>=1.11.1",
+    "yfinance>=0.2.18",
+    "ccxt>=4.0.77",
+    "requests>=2.31.0",
+    "websocket-client>=1.6.3",
+    "xgboost>=1.7.6",
+    "lightgbm>=4.0.0",
+    "streamlit>=1.28.0",
+    "plotly>=5.17.0",
+    "dash>=2.14.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "aiohttp>=3.9.1",
+    "asyncpg>=0.29.0",
+    "aiogram>=3.2.0",
+    "loguru>=0.7.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.0.0",
+    "tenacity>=8.2.0",
+    "backoff>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.1",
+    "pre-commit>=3.4.0",
+    "bandit>=1.7.5",
+    "safety>=2.3.0",
+]
+ta-lib = [
+    "TA-Lib>=0.4.25",
+]
+monitoring = [
+    "prometheus-client>=0.17.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-instrumentation-fastapi>=0.41b0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mateoMakalone/victor_agent"
+Repository = "https://github.com/mateoMakalone/victor_agent"
+Documentation = "https://github.com/mateoMakalone/victor_agent/blob/main/docs/"
+Issues = "https://github.com/mateoMakalone/victor_agent/issues"
+
+[project.scripts]
+trading-agent = "scripts.run_async:main"
+trading-api = "scripts.run_api_v2:main"
+trading-dashboard = "scripts.run_dashboard:main"
+trading-bot = "scripts.run_bot:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "scripts*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json", "*.sql", "*.md"]
+
+# Black configuration
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# isort configuration
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+src_paths = ["src", "scripts", "tests"]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "yfinance.*",
+    "ccxt.*",
+    "TA_Lib.*",
+    "streamlit.*",
+    "plotly.*",
+    "dash.*",
+    "aiogram.*",
+    "loguru.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+# Bandit configuration
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv"]
+skips = ["B101", "B601"]
+
+# Safety configuration
+[tool.safety]
+output = "json"

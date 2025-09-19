@@ -1,0 +1,256 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: trading_agent_postgres
+    environment:
+      POSTGRES_DB: trading_agent
+      POSTGRES_USER: trading_user
+      POSTGRES_PASSWORD: trading_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./ops/sql/schema_v2.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading_user -d trading_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - trading_network
+
+  # Redis для кэширования и очередей
+  redis:
+    image: redis:7-alpine
+    container_name: trading_agent_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - trading_network
+
+  # API v2 Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: trading_agent_api
+    environment:
+      - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
+      - REDIS_URL=redis://redis:6379
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+  # Strategy Runner
+  strategy_runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.strategy
+    container_name: trading_agent_strategy
+    environment:
+      - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
+      - REDIS_URL=redis://redis:6379
+      - API_URL=http://api:8000
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./models:/app/models
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+  # Telegram Bot
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: trading_agent_telegram
+    environment:
+      - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
+      - REDIS_URL=redis://redis:6379
+      - API_URL=http://api:8000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - LOG_LEVEL=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+  # Dashboard
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: trading_agent_dashboard
+    environment:
+      - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
+      - API_URL=http://api:8000
+      - DASHBOARD_HOST=0.0.0.0
+      - DASHBOARD_PORT=8501
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+  # n8n Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: trading_agent_n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin123}
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://n8n:5678
+      - GENERIC_TIMEZONE=UTC
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=trading_user
+      - DB_POSTGRESDB_PASSWORD=trading_password
+    ports:
+      - "5678:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./ops/n8n:/home/node/.n8n/workflows
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+  # Prometheus для мониторинга
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: trading_agent_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./ops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+  # Grafana для визуализации
+  grafana:
+    image: grafana/grafana:latest
+    container_name: trading_agent_grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./ops/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./ops/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: trading_agent_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ops/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./ops/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+      - dashboard
+      - n8n
+      - grafana
+    networks:
+      - trading_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  n8n_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  trading_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

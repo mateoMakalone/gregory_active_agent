@@ -21,6 +21,42 @@ run-api: ## Запустить безопасный API сервер
 test-security: ## Тестировать систему безопасности
 	python3 scripts/test_security.py
 
+run-api-v2: ## Запустить API v2 сервер
+	python3 scripts/run_api_v2.py
+
+test-unit: ## Запустить unit тесты
+	pytest tests/unit/ -v
+
+test-integration: ## Запустить интеграционные тесты
+	pytest tests/integration/ -v -m integration
+
+test-all: ## Запустить все тесты
+	pytest tests/ -v
+
+format: ## Форматировать код
+	black src/ scripts/ tests/
+	isort src/ scripts/ tests/
+
+lint: ## Проверить код линтерами
+	flake8 src/ scripts/ tests/
+	mypy src/
+
+pre-commit: ## Установить pre-commit хуки
+	pre-commit install
+	pre-commit run --all-files
+
+docker-build: ## Собрать Docker образы
+	docker build -f Dockerfile.api -t trading-agent-api:latest .
+
+docker-compose-up: ## Запустить все сервисы через Docker Compose
+	docker-compose -f docker-compose.v2.yml up -d
+
+docker-compose-down: ## Остановить все сервисы
+	docker-compose -f docker-compose.v2.yml down
+
+docker-compose-logs: ## Показать логи Docker Compose
+	docker-compose -f docker-compose.v2.yml logs -f
+
 run: ## Запустить систему (асинхронная версия)
 	python3 scripts/run_async.py
 
