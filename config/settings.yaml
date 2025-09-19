@@ -18,8 +18,17 @@ api:
 
 # Database
 database:
-  url: "sqlite:///data/trading_agent.db"  # Для обратной совместимости
+  type: "sqlite"  # sqlite или postgresql
+  url: "sqlite:///data/trading_agent.db"
   echo: false
+  # Для PostgreSQL:
+  # type: "postgresql"
+  # url: "postgresql://user:password@localhost:5432/trading_agent"
+  # host: "localhost"
+  # port: 5432
+  # name: "trading_agent"
+  # user: "postgres"
+  # password: "password"
 
 # Orchestration Database (PostgreSQL)
 orchestration:

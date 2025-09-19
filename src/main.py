@@ -14,6 +14,9 @@ from .core.logger import setup_logging
 from .data.adapters import AsyncFundingPipsAdapter, AsyncHashHedgeAdapter
 from .strategies.trend_following_strategy import TrendFollowingStrategy
 from .strategies.indicators import TechnicalIndicators
+from .database.connection import db_manager
+from .database.services import SignalService, PositionService, MetricsService
+from .database.models import SignalType, SignalStrength, PositionSide
 from telegram_bot.bot import async_telegram_bot
 
 
@@ -27,6 +30,7 @@ class AsyncTradingAgent:
         self.setup_strategies()
         self.is_running = False
         self.session = None
+        self.db_connected = False
         
         logger.info("Асинхронный торговый AI-агент инициализирован")
     
@@ -73,6 +77,107 @@ class AsyncTradingAgent:
         
         self.strategies.append(TrendFollowingStrategy(trend_config))
         logger.info(f"Настроено {len(self.strategies)} стратегий")
+    
+    async def connect_database(self):
+        """Подключение к базе данных"""
+        try:
+            self.db_connected = await db_manager.connect()
+            if self.db_connected:
+                logger.info("✅ Подключение к базе данных установлено")
+            else:
+                logger.warning("⚠️ Не удалось подключиться к базе данных")
+        except Exception as e:
+            logger.error(f"❌ Ошибка подключения к БД: {e}")
+            self.db_connected = False
+    
+    async def disconnect_database(self):
+        """Отключение от базы данных"""
+        try:
+            await db_manager.disconnect()
+            self.db_connected = False
+            logger.info("🔌 Отключение от базы данных")
+        except Exception as e:
+            logger.error(f"❌ Ошибка отключения от БД: {e}")
+    
+    async def save_signal(self, strategy_id: str, symbol: str, timeframe: str, 
+                         signal_type: str, strength: str, price: float, 
+                         confidence: float, **kwargs) -> Optional[str]:
+        """Сохранение торгового сигнала в БД"""
+        if not self.db_connected:
+            logger.warning("База данных не подключена, сигнал не сохранен")
+            return None
+        
+        try:
+            # Преобразуем строки в enum
+            signal_type_enum = SignalType(signal_type.upper())
+            strength_enum = SignalStrength(strength.upper())
+            
+            signal = await SignalService.create_signal(
+                strategy_id=strategy_id,
+                symbol=symbol,
+                timeframe=timeframe,
+                signal_type=signal_type_enum,
+                strength=strength_enum,
+                price=price,
+                confidence=confidence,
+                **kwargs
+            )
+            
+            logger.info(f"💾 Сигнал сохранен: {signal.signal_id}")
+            return signal.signal_id
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка сохранения сигнала: {e}")
+            return None
+    
+    async def save_position(self, strategy_id: str, symbol: str, side: str, 
+                           size: float, entry_price: float, signal_id: str = None, 
+                           **kwargs) -> Optional[str]:
+        """Сохранение торговой позиции в БД"""
+        if not self.db_connected:
+            logger.warning("База данных не подключена, позиция не сохранена")
+            return None
+        
+        try:
+            # Преобразуем строку в enum
+            side_enum = PositionSide(side.upper())
+            
+            position = await PositionService.create_position(
+                strategy_id=strategy_id,
+                symbol=symbol,
+                side=side_enum,
+                size=size,
+                entry_price=entry_price,
+                signal_id=signal_id,
+                **kwargs
+            )
+            
+            logger.info(f"💾 Позиция сохранена: {position.position_id}")
+            return position.position_id
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка сохранения позиции: {e}")
+            return None
+    
+    async def update_position_prices(self, symbol: str, current_price: float):
+        """Обновление цен для позиций по символу"""
+        if not self.db_connected:
+            return
+        
+        try:
+            await PositionService.update_position_prices(symbol, current_price)
+        except Exception as e:
+            logger.error(f"❌ Ошибка обновления цен позиций: {e}")
+    
+    async def record_metrics(self, strategy_id: str, **metrics):
+        """Запись метрик в БД"""
+        if not self.db_connected:
+            return
+        
+        try:
+            await MetricsService.record_live_metrics(strategy_id, **metrics)
+        except Exception as e:
+            logger.error(f"❌ Ошибка записи метрик: {e}")
     
     async def connect_adapters(self) -> bool:
         """Асинхронное подключение к источникам данных"""
@@ -240,6 +345,25 @@ class AsyncTradingAgent:
         # Создаем задачи для параллельной отправки
         tasks = []
         for signal in signals:
+            # Сохраняем сигнал в БД
+            signal_id = await self.save_signal(
+                strategy_id=signal.get('strategy_id', 'default'),
+                symbol=signal.get('symbol', ''),
+                timeframe=signal.get('timeframe', '1h'),
+                signal_type=signal.get('signal_type', 'HOLD'),
+                strength=signal.get('strength', 'MEDIUM'),
+                price=signal.get('price', 0.0),
+                confidence=signal.get('confidence', 0.5),
+                stop_loss=signal.get('stop_loss'),
+                take_profit=signal.get('take_profit'),
+                metadata=signal.get('metadata', {})
+            )
+            
+            # Добавляем signal_id к сигналу
+            if signal_id:
+                signal['signal_id'] = signal_id
+            
+            # Отправляем в Telegram
             task = async_telegram_bot.send_signal(signal)
             tasks.append(task)
         
@@ -292,6 +416,13 @@ class AsyncTradingAgent:
             else:
                 logger.info("Сигналы не сгенерированы")
             
+            # Записываем метрики
+            await self.record_metrics(
+                strategy_id="default",
+                positions_count=len(await PositionService.get_open_positions()),
+                latency_ms=int((asyncio.get_event_loop().time() - start_time) * 1000)
+            )
+            
             logger.info("Асинхронный цикл анализа завершен")
             
         except Exception as e:
@@ -305,6 +436,9 @@ class AsyncTradingAgent:
             interval_minutes: Интервал между циклами в минутах
         """
         logger.info(f"Запуск асинхронного торгового агента (интервал: {interval_minutes} минут)")
+        
+        # Подключаемся к базе данных
+        await self.connect_database()
         
         # Подключаемся к источникам данных
         if not await self.connect_adapters():
@@ -346,6 +480,7 @@ class AsyncTradingAgent:
         logger.info("Остановка асинхронного торгового агента")
         self.is_running = False
         await self.disconnect_adapters()
+        await self.disconnect_database()
         logger.info("Агент остановлен")
     
     def get_status(self) -> Dict:

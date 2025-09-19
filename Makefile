@@ -9,6 +9,12 @@ help: ## Показать справку
 install: ## Установить зависимости
 	python3 -m pip install -r requirements.txt
 
+init-db: ## Инициализировать базу данных
+	python3 scripts/init_db.py
+
+test-db: ## Тестировать базу данных
+	python3 scripts/test_db.py
+
 run: ## Запустить систему (асинхронная версия)
 	python3 scripts/run_async.py
 
