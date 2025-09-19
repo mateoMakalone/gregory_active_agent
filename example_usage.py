@@ -13,8 +13,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from src.core.config import config
 from src.core.logger import setup_logging
-from src.data.fundingpips_adapter import FundingPipsAdapter
-from src.data.hashhedge_adapter import HashHedgeAdapter
+from src.data.adapters import AsyncFundingPipsAdapter, AsyncHashHedgeAdapter, create_test_data
 from src.strategies.trend_following_strategy import TrendFollowingStrategy
 from src.strategies.indicators import TechnicalIndicators
 from telegram_bot.bot import telegram_bot
@@ -26,22 +25,7 @@ def example_data_collection():
     logger.info("=== Пример сбора данных ===")
     
     # Создаем тестовые данные
-    dates = pd.date_range(start=datetime.now() - timedelta(days=7), end=datetime.now(), freq='H')
-    
-    # Генерируем тестовые OHLCV данные
-    base_price = 1.0850
-    price_changes = pd.Series(range(len(dates))) * 0.0001
-    
-    test_data = pd.DataFrame({
-        'timestamp': dates,
-        'open': base_price + price_changes,
-        'high': base_price + price_changes + 0.001,
-        'low': base_price + price_changes - 0.001,
-        'close': base_price + price_changes + 0.0005,
-        'volume': 1000 + pd.Series(range(len(dates))) * 10
-    })
-    
-    test_data.set_index('timestamp', inplace=True)
+    test_data = create_test_data("EURUSD", days=7)
     
     logger.info(f"Созданы тестовые данные: {len(test_data)} свечей")
     logger.info(f"Период: {test_data.index[0]} - {test_data.index[-1]}")

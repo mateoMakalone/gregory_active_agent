@@ -57,6 +57,23 @@ docker-compose-down: ## Остановить все сервисы
 docker-compose-logs: ## Показать логи Docker Compose
 	docker-compose -f docker-compose.v2.yml logs -f
 
+test-e2e: ## Запустить E2E тест
+	python3 scripts/test_e2e.py
+
+example-async: ## Запустить асинхронный пример
+	python3 example_usage_async.py
+
+local-db: ## Запустить локальную БД (PostgreSQL)
+	docker run -d --name trading_postgres \
+		-e POSTGRES_DB=trading_agent \
+		-e POSTGRES_USER=trading_user \
+		-e POSTGRES_PASSWORD=trading_password \
+		-p 5432:5432 \
+		postgres:15-alpine
+
+stop-local-db: ## Остановить локальную БД
+	docker stop trading_postgres && docker rm trading_postgres
+
 run: ## Запустить систему (асинхронная версия)
 	python3 scripts/run_async.py
 
