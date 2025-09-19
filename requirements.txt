@@ -53,6 +53,7 @@ mypy>=1.5.1
 # API Server
 fastapi>=0.100.0
 uvicorn>=0.23.0
+aiohttp>=3.9.1
 asyncpg>=0.29.0
 
 # Deployment

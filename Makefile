@@ -15,6 +15,12 @@ init-db: ## Инициализировать базу данных
 test-db: ## Тестировать базу данных
 	python3 scripts/test_db.py
 
+run-api: ## Запустить безопасный API сервер
+	python3 scripts/run_api.py
+
+test-security: ## Тестировать систему безопасности
+	python3 scripts/test_security.py
+
 run: ## Запустить систему (асинхронная версия)
 	python3 scripts/run_async.py
 

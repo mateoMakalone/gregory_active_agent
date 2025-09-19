@@ -83,6 +83,48 @@ orchestration:
     backoff_factor: 2       # 2, 4, 8 секунд
     max_delay: 300          # 5 минут максимум
 
+# Security Configuration
+security:
+  webhook:
+    secret_key: "your_webhook_secret_key_change_me"
+    allowed_ips: 
+      - "127.0.0.1"
+      - "172.16.0.0/12"  # Docker networks
+      - "10.0.0.0/8"     # Private networks
+    max_timestamp_diff: 300  # 5 minutes
+  
+  rate_limit:
+    max_requests: 100
+    window_seconds: 3600  # 1 hour
+    burst_limit: 10
+    burst_window: 60  # 1 minute
+  
+  retry:
+    max_attempts: 3
+    base_delay: 1.0
+    max_delay: 300.0
+    backoff_factor: 2.0
+    strategy: "exponential"
+    jitter: true
+  
+  idempotency:
+    cache_ttl: 3600  # 1 hour
+    max_cache_size: 10000
+  
+  backpressure:
+    max_queue_size: 1000
+    queue_full_threshold: 0.8
+    delay: 0.1
+
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8000
+  docs_enabled: true
+  cors:
+    allow_origins: ["*"]
+  trusted_hosts: ["*"]
+
 # Trading Configuration
 trading:
   # Таймфреймы для анализа (в порядке приоритета)
