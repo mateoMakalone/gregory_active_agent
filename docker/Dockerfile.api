@@ -1,6 +1,11 @@
 # Multi-stage build для API сервера
 FROM python:3.11-slim as builder
 
+# --- build args to bust cache & track version ---
+ARG GIT_SHA=dev
+ENV BUILD_SHA=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
+
 # Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -12,14 +17,19 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Копирование requirements
-COPY requirements.txt .
+COPY requirements.txt /app/requirements.txt
 
 # Установка Python зависимостей
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r /app/requirements.txt
 
 # Production stage
 FROM python:3.11-slim
+
+# --- build args to bust cache & track version ---
+ARG GIT_SHA=dev
+ENV BUILD_SHA=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
 
 # Создание пользователя без root привилегий
 RUN groupadd -r trading && useradd -r -g trading trading
@@ -37,11 +47,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN mkdir -p /app/logs /app/data /app/models && \
     chown -R trading:trading /app
 
-# Копирование кода
-COPY src/ /app/src/
-COPY scripts/ /app/scripts/
-COPY config/ /app/config/
-COPY ops/ /app/ops/
+# 1) зависимости отдельно
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# 2) код — отдельным слоем (инвалидирует кэш при любом изменении)
+COPY . /app
 
 # Установка рабочей директории
 WORKDIR /app

@@ -6,6 +6,9 @@ from __future__ import annotations
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
+import os
+import logging
+import inspect
 
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +25,9 @@ from ...database.clean_connection import clean_db_manager
 from ...execution.paper_broker import PaperBroker
 from ...contracts.data_feed import DataFeed
 from ...contracts.broker import OrderSide, OrderType
+
+# Настройка логирования для build info
+log = logging.getLogger(__name__)
 
 
 # Pydantic модели
@@ -136,6 +142,10 @@ async def lifespan(app: FastAPI):
     """Lifespan для инициализации и очистки ресурсов"""
     # Инициализация при запуске
     logger.info("🚀 Инициализация API v2 сервера...")
+    
+    # Логирование build info для верификации
+    logger.info(f"📦 Module file: {__file__}")
+    logger.info(f"🚀 API build: {os.getenv('BUILD_SHA', 'unknown')}")
     
     # Подключаемся к базе данных
     if not await clean_db_manager.connect():

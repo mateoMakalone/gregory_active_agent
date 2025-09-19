@@ -10,7 +10,7 @@ from pathlib import Path
 def main():
     """Запуск дашборда"""
     # Получаем путь к дашборду
-    dashboard_path = Path(__file__).parent / "app" / "dashboard.py"
+    dashboard_path = Path(__file__).parent.parent / "app" / "dashboard.py"
     
     if not dashboard_path.exists():
         print(f"Ошибка: файл дашборда не найден: {dashboard_path}")

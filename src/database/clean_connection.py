@@ -148,3 +148,4 @@ class CleanDatabaseManager:
 
 # Глобальный экземпляр менеджера
 clean_db_manager = CleanDatabaseManager()
+

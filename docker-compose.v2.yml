@@ -44,7 +44,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+    image: trading-agent-api:${GIT_SHA:-dev}
     container_name: trading_agent_api
+    command: ["python", "scripts/run_clean_api.py"]
     environment:
       - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_agent
       - REDIS_URL=redis://redis:6379
