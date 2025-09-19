@@ -62,4 +62,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 8000
 
 # Команда запуска
-CMD ["python", "scripts/run_api_v2.py"]
+CMD ["python", "scripts/run_clean_api.py"]
