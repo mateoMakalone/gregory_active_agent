@@ -10,7 +10,7 @@ from pathlib import Path
 # Добавляем путь к src в sys.path
 sys.path.append(str(Path(__file__).parent))
 
-from src.async_main import main
+from src.main import main
 from src.core.logger import setup_logging
 from loguru import logger
 

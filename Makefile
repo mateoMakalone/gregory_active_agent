@@ -9,36 +9,30 @@ help: ## Показать справку
 install: ## Установить зависимости
 	python3 -m pip install -r requirements.txt
 
-run: ## Запустить систему (синхронная версия)
-	python3 -m src.main
-
-run-async: ## Запустить систему (асинхронная версия)
-	python3 run_async.py
+run: ## Запустить систему (асинхронная версия)
+	python3 scripts/run_async.py
 
 run-dashboard: ## Запустить только дашборд
 	streamlit run app/dashboard.py
 
 run-bot: ## Запустить только Telegram-бота
-	python3 run_bot.py
+	python3 scripts/run_bot.py
 
-run-bot-async: ## Запустить асинхронный Telegram-бот
-	python3 -c "import asyncio; from telegram_bot.async_bot import async_telegram_bot; asyncio.run(async_telegram_bot.test_connection())"
-
-run-all: ## Запустить все компоненты (legacy)
-	python3 run_all.py
+run-all: ## Запустить все компоненты
+	python3 scripts/run_all.py
 
 run-example: ## Запустить пример
-	python3 run_example.py
+	python3 scripts/run_example.py
 
 # Quick start commands
 start: ## 🚀 Запустить всю систему одной командой
-	./start_all.sh
+	./scripts/start_all.sh
 
 stop: ## 🛑 Остановить всю систему
-	./stop_all.sh
+	./scripts/stop_all.sh
 
 status: ## 📊 Показать статус всех компонентов
-	./status.sh
+	./scripts/status.sh
 
 # n8n controls
 n8n-start: ## Запустить только n8n (Docker требуется)

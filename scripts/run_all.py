@@ -96,8 +96,8 @@ class TradingAgentManager:
         # Запускаем компоненты
         components = [
             ("Dashboard", [sys.executable, "-m", "streamlit", "run", "app/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]),
-            ("Telegram Bot", [sys.executable, "run_bot.py"]),
-            ("Trading Agent", [sys.executable, "-m", "src.main"])
+            ("Telegram Bot", [sys.executable, "scripts/run_bot.py"]),
+            ("Trading Agent", [sys.executable, "scripts/run_async.py"])
         ]
         
         # Запускаем все компоненты

@@ -54,7 +54,11 @@ pip install -r requirements.txt
 ## Запуск
 
 ```bash
+# Асинхронная версия (рекомендуется)
 make run
+
+# Или напрямую
+python scripts/run_async.py
 ```
 
 ## Конфигурация

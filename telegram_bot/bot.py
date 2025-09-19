@@ -1,9 +1,9 @@
 """
-Telegram-бот для отправки торговых сигналов
+Асинхронный Telegram-бот для отправки торговых сигналов
 """
 
 import asyncio
-import requests
+import aiohttp
 from typing import Optional, Dict, Any
 from datetime import datetime
 from loguru import logger
@@ -12,8 +12,8 @@ from src.core.config import config
 from src.strategies.base_strategy import TradingSignal, SignalType, SignalStrength
 
 
-class TelegramBot:
-    """Класс для работы с Telegram-ботом"""
+class AsyncTelegramBot:
+    """Асинхронный класс для работы с Telegram-ботом"""
     
     def __init__(self):
         """Инициализация бота"""
@@ -26,11 +26,11 @@ class TelegramBot:
             self.is_available = False
         else:
             self.is_available = True
-            logger.info("Telegram-бот инициализирован")
+            logger.info("Асинхронный Telegram-бот инициализирован")
     
-    def send_message(self, text: str, parse_mode: str = "HTML") -> bool:
+    async def send_message(self, text: str, parse_mode: str = "HTML") -> bool:
         """
-        Отправка сообщения в Telegram
+        Асинхронная отправка сообщения в Telegram
         
         Args:
             text: Текст сообщения
@@ -45,28 +45,37 @@ class TelegramBot:
         
         try:
             url = f"{self.base_url}/sendMessage"
-            params = {
+            data = {
                 'chat_id': self.chat_id,
                 'text': text,
                 'parse_mode': parse_mode
             }
             
-            response = requests.post(url, params=params, timeout=10)
-            response.raise_for_status()
-            
-            logger.info("Сообщение отправлено в Telegram")
-            return True
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Ошибка отправки сообщения в Telegram: {e}")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    response.raise_for_status()
+                    result = await response.json()
+                    
+                    if result.get('ok'):
+                        logger.info("Сообщение отправлено в Telegram")
+                        return True
+                    else:
+                        logger.error(f"Ошибка API Telegram: {result.get('description')}")
+                        return False
+                        
+        except asyncio.TimeoutError:
+            logger.error("Таймаут при отправке сообщения в Telegram")
+            return False
+        except aiohttp.ClientError as e:
+            logger.error(f"Ошибка HTTP при отправке в Telegram: {e}")
             return False
         except Exception as e:
             logger.error(f"Неожиданная ошибка при отправке в Telegram: {e}")
             return False
     
-    def send_signal(self, signal: TradingSignal) -> bool:
+    async def send_signal(self, signal: TradingSignal) -> bool:
         """
-        Отправка торгового сигнала
+        Асинхронная отправка торгового сигнала
         
         Args:
             signal: Торговый сигнал
@@ -83,7 +92,7 @@ class TelegramBot:
             message = self._format_signal_message(signal)
             
             # Отправляем сообщение
-            return self.send_message(message)
+            return await self.send_message(message)
             
         except Exception as e:
             logger.error(f"Ошибка отправки сигнала: {e}")
@@ -150,9 +159,9 @@ class TelegramBot:
         
         return message.strip()
     
-    def send_alert(self, title: str, message: str, level: str = "INFO") -> bool:
+    async def send_alert(self, title: str, message: str, level: str = "INFO") -> bool:
         """
-        Отправка уведомления
+        Асинхронная отправка уведомления
         
         Args:
             title: Заголовок уведомления
@@ -181,11 +190,11 @@ class TelegramBot:
 ⏰ {datetime.now().strftime('%H:%M:%S %d.%m.%Y')}
 """
         
-        return self.send_message(formatted_message)
+        return await self.send_message(formatted_message)
     
-    def send_performance_report(self, metrics: Dict[str, Any]) -> bool:
+    async def send_performance_report(self, metrics: Dict[str, Any]) -> bool:
         """
-        Отправка отчета о производительности
+        Асинхронная отправка отчета о производительности
         
         Args:
             metrics: Метрики производительности
@@ -211,15 +220,15 @@ class TelegramBot:
 ⏰ {datetime.now().strftime('%H:%M:%S %d.%m.%Y')}
 """
             
-            return self.send_message(message)
+            return await self.send_message(message)
             
         except Exception as e:
             logger.error(f"Ошибка отправки отчета: {e}")
             return False
     
-    def test_connection(self) -> bool:
+    async def test_connection(self) -> bool:
         """
-        Тестирование подключения к Telegram API
+        Асинхронное тестирование подключения к Telegram API
         
         Returns:
             True если подключение успешно
@@ -229,18 +238,24 @@ class TelegramBot:
         
         try:
             url = f"{self.base_url}/getMe"
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
             
-            bot_info = response.json()
-            if bot_info.get('ok'):
-                logger.info(f"Telegram-бот подключен: @{bot_info['result']['username']}")
-                return True
-            else:
-                logger.error("Ошибка получения информации о боте")
-                return False
-                
-        except requests.exceptions.RequestException as e:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    response.raise_for_status()
+                    result = await response.json()
+                    
+                    if result.get('ok'):
+                        bot_info = result['result']
+                        logger.info(f"Telegram-бот подключен: @{bot_info['username']}")
+                        return True
+                    else:
+                        logger.error("Ошибка получения информации о боте")
+                        return False
+                        
+        except asyncio.TimeoutError:
+            logger.error("Таймаут при подключении к Telegram API")
+            return False
+        except aiohttp.ClientError as e:
             logger.error(f"Ошибка подключения к Telegram API: {e}")
             return False
         except Exception as e:
@@ -248,6 +263,5 @@ class TelegramBot:
             return False
 
 
-# Глобальный экземпляр бота
-telegram_bot = TelegramBot()
-
+# Глобальный экземпляр асинхронного бота
+async_telegram_bot = AsyncTelegramBot()
