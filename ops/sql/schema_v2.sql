@@ -289,30 +289,30 @@ SELECT
     COALESCE(total_pnl.pnl, 0) as total_pnl
 FROM runs r
 LEFT JOIN (
-    SELECT run_id, COUNT(*) as count 
+    SELECT signals.run_id, COUNT(*) as count 
     FROM signals 
-    GROUP BY run_id
+    GROUP BY signals.run_id
 ) signal_count ON r.run_id = signal_count.run_id
 LEFT JOIN (
-    SELECT run_id, COUNT(*) as count 
+    SELECT orders.run_id, COUNT(*) as count 
     FROM orders 
-    GROUP BY run_id
+    GROUP BY orders.run_id
 ) order_count ON r.run_id = order_count.run_id
 LEFT JOIN (
-    SELECT run_id, COUNT(*) as count 
+    SELECT positions.run_id, COUNT(*) as count 
     FROM positions 
-    WHERE quantity != 0
-    GROUP BY run_id
+    WHERE positions.quantity != 0
+    GROUP BY positions.run_id
 ) position_count ON r.run_id = position_count.run_id
 LEFT JOIN (
-    SELECT run_id, COUNT(*) as count 
+    SELECT executions.run_id, COUNT(*) as count 
     FROM executions 
-    GROUP BY run_id
+    GROUP BY executions.run_id
 ) execution_count ON r.run_id = execution_count.run_id
 LEFT JOIN (
-    SELECT run_id, SUM(realized_pnl) as pnl 
+    SELECT positions.run_id, SUM(positions.realized_pnl) as pnl 
     FROM positions 
-    GROUP BY run_id
+    GROUP BY positions.run_id
 ) total_pnl ON r.run_id = total_pnl.run_id;
 
 -- ==============================================

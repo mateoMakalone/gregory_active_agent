@@ -105,7 +105,7 @@ class DatabaseManager:
                     schema_sql = f.read()
                 
                 # Выполняем SQL в отдельном потоке
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 await loop.run_in_executor(
                     None,
                     lambda: self.sqlite_conn.executescript(schema_sql)
@@ -142,7 +142,7 @@ class DatabaseManager:
                     return await conn.fetch(query, *params)
             elif self.sqlite_conn:
                 # Выполняем в отдельном потоке
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 return await loop.run_in_executor(
                     None,
                     lambda: self.sqlite_conn.execute(query, params).fetchall()
@@ -161,7 +161,7 @@ class DatabaseManager:
                 async with self.postgres_pool.acquire() as conn:
                     return await conn.fetchrow(query, *params)
             elif self.sqlite_conn:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(
                     None,
                     lambda: self.sqlite_conn.execute(query, params).fetchone()
@@ -181,7 +181,7 @@ class DatabaseManager:
                 async with self.postgres_pool.acquire() as conn:
                     return await conn.executemany(query, params_list)
             elif self.sqlite_conn:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 return await loop.run_in_executor(
                     None,
                     lambda: self.sqlite_conn.executemany(query, params_list)
@@ -197,7 +197,7 @@ class DatabaseManager:
         """Подтверждение транзакции"""
         try:
             if self.sqlite_conn:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, self.sqlite_conn.commit)
             # PostgreSQL автоматически коммитит в asyncpg
                 

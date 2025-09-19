@@ -254,7 +254,7 @@ class AsyncTradingAgent:
             start_date = end_date - timedelta(days=1)
             
             # Запускаем в отдельном потоке, чтобы не блокировать event loop
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             market_data = await loop.run_in_executor(
                 None,
                 lambda: adapter.get_historical_data(
@@ -325,7 +325,7 @@ class AsyncTradingAgent:
                 return None
             
             # Запускаем анализ в отдельном потоке
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             signal = await loop.run_in_executor(
                 None,
                 lambda: strategy.analyze(symbol_data)

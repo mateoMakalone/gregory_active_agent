@@ -8,6 +8,13 @@ import asyncio
 import uvicorn
 from pathlib import Path
 
+# Исправляем проблемы с nested event loops
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+
 # Добавляем путь к src в sys.path
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -18,7 +25,21 @@ from src.database.connection import db_manager
 from loguru import logger
 
 
-async def main():
+async def startup():
+    """Инициализация при запуске"""
+    # Подключаемся к базе данных
+    if not await db_manager.connect():
+        raise ConnectionError("Не удалось подключиться к базе данных")
+    logger.info("✅ Подключение к базе данных установлено")
+
+
+async def shutdown():
+    """Очистка при остановке"""
+    await db_manager.disconnect()
+    logger.info("🔌 Отключение от базы данных")
+
+
+def main():
     """Основная функция запуска API v2 сервера"""
     try:
         # Настраиваем логирование
@@ -26,16 +47,14 @@ async def main():
         
         logger.info("🚀 Запуск API v2 сервера...")
         
-        # Подключаемся к базе данных
-        if not await db_manager.connect():
-            raise ConnectionError("Не удалось подключиться к базе данных")
-        
-        logger.info("✅ Подключение к базе данных установлено")
-        
         # Получаем конфигурацию
         host = config.get('api.host', '0.0.0.0')
         port = config.get('api.port', 8000)
         docs_enabled = config.get('api.docs_enabled', True)
+        
+        # Добавляем startup и shutdown события
+        api_server_v2.app.add_event_handler("startup", startup)
+        api_server_v2.app.add_event_handler("shutdown", shutdown)
         
         # Запускаем сервер
         logger.info(f"🌐 API v2 сервер запущен на {host}:{port}")
@@ -57,9 +76,7 @@ async def main():
     except Exception as e:
         logger.error(f"❌ Ошибка запуска API v2 сервера: {e}")
         sys.exit(1)
-    finally:
-        await db_manager.disconnect()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
