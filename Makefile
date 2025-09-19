@@ -33,6 +33,9 @@ test-integration: ## Запустить интеграционные тесты
 test-all: ## Запустить все тесты
 	pytest tests/ -v
 
+test-imports: ## Тестировать импорты
+	python3 scripts/test_imports.py
+
 format: ## Форматировать код
 	black src/ scripts/ tests/
 	isort src/ scripts/ tests/
